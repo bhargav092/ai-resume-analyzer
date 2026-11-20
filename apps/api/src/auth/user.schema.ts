@@ -11,8 +11,28 @@ export class User {
   @Prop({ required: true, trim: true, maxlength: 100 })
   displayName!: string
 
-  @Prop({ required: true, select: false })
-  passwordHash!: string
+  @Prop({ select: false })
+  passwordHash?: string
+
+  @Prop({ unique: true, sparse: true, select: false })
+  googleId?: string
+
+  @Prop({ required: true, default: Date.now })
+  trialStartedAt!: Date
+
+  @Prop()
+  subscriptionEndsAt?: Date
+
+  @Prop({ type: [String], default: [] })
+  subscriptionPaymentIds!: string[]
+
+  @Prop()
+  firstLoginEmailSentAt?: Date
+
+  @Prop({ default: false, select: false })
+  firstLoginEmailSending!: boolean
+
+  createdAt!: Date
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

@@ -30,6 +30,15 @@ export class AuthController {
     return this.auth.login(email, password)
   }
 
+  @Post('google')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  googleLogin(@Body() body: unknown) {
+    if (!body || typeof body !== 'object' || typeof (body as Record<string, unknown>).credential !== 'string') {
+      throw new BadRequestException('A Google credential is required.')
+    }
+    return this.auth.googleLogin((body as Record<string, string>).credential)
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@Req() request: AuthenticatedRequest) {

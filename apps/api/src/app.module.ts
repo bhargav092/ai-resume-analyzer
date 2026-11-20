@@ -16,6 +16,11 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { ScheduleModule } from '@nestjs/schedule'
 import { AnalysisRetentionService } from './analyses/analysis-retention.service'
+import { SubscriptionsController } from './subscriptions/subscriptions.controller'
+import { SubscriptionsService } from './subscriptions/subscriptions.service'
+import { SubscriptionPayment, SubscriptionPaymentSchema } from './subscriptions/subscription-payment.schema'
+import { EmailService } from './notifications/email.service'
+import { QrPaymentExpiryService } from './subscriptions/qr-payment-expiry.service'
 
 @Module({
   imports: [
@@ -26,16 +31,20 @@ import { AnalysisRetentionService } from './analyses/analysis-retention.service'
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Analysis.name, schema: AnalysisSchema },
+      { name: SubscriptionPayment.name, schema: SubscriptionPaymentSchema },
     ]),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     ScheduleModule.forRoot(),
     MulterModule.register({ limits: { fileSize: 5 * 1024 * 1024 } }),
   ],
-  controllers: [AnalysesController, AuthController, HealthController],
+  controllers: [AnalysesController, AuthController, HealthController, SubscriptionsController],
   providers: [
     AnalysisService,
     DocumentParserService,
     AuthService,
+    SubscriptionsService,
+    EmailService,
+    QrPaymentExpiryService,
     JwtAuthGuard,
     ResumeStorageService,
     AnalysisRetentionService,

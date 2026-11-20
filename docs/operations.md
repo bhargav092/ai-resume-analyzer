@@ -8,6 +8,9 @@
 - `WEB_ORIGIN` set to the exact trusted web origin(s)
 - `AI_PROVIDER=claude` or `AI_PROVIDER=openai`, plus `AI_API_KEY`
 - `AI_MODEL` if using a non-default model
+- `GOOGLE_CLIENT_ID` if Google sign-in is enabled
+- SMTP settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`) for email
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` for card, UPI, and QR payments
 
 When a real AI provider is enabled, extracted resume text and the job description are
 sent to that provider. Review the provider's data-processing terms and disclose this to
@@ -15,6 +18,13 @@ users before enabling it.
 
 The API refuses a production startup with the mock provider or a missing/placeholder
 JWT secret. Keep all secrets in the deployment platform's secret manager.
+
+For Docker Compose, copy `.env.example` to the project-root `.env` and configure the
+variables there. `VITE_GOOGLE_CLIENT_ID` is a public web build value; all other OAuth,
+SMTP, and Razorpay credentials stay in the API environment. Enable QR Codes in the
+Razorpay merchant account before using QR payments. QR payment requests are
+single-use, fixed-amount codes; their expiry is provided by Razorpay and is at least
+two minutes. Test the complete flow with Razorpay test credentials before production.
 
 ## S3 resume storage
 
