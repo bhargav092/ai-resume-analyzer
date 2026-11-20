@@ -61,7 +61,7 @@ export class SubscriptionsService {
 
   async getStatus(userId: string) {
     const user = await this.users.findById(userId)
-      .select('trialStartedAt subscriptionEndsAt createdAt')
+      .select('trialStartedAt subscriptionEndsAt demoSubscription createdAt')
       .lean()
     if (!user) throw new UnauthorizedException('User account no longer exists.')
 
@@ -78,6 +78,7 @@ export class SubscriptionsService {
       trialActive: trialEndsAt.getTime() > now,
       subscriptionEndsAt,
       subscriptionActive,
+      demoSubscription: subscriptionActive && user.demoSubscription === true,
       accessActive: subscriptionActive || trialEndsAt.getTime() > now,
       razorpayKeyId: process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
         ? process.env.RAZORPAY_KEY_ID
@@ -272,7 +273,7 @@ export class SubscriptionsService {
       const subscriptionEndsAt = new Date(Math.max(now, currentEnd) + plan.durationMs)
       const updatedUser = await this.users.findOneAndUpdate(
         { _id: userId, subscriptionPaymentIds: { $ne: payment.id } },
-        { $set: { subscriptionEndsAt }, $addToSet: { subscriptionPaymentIds: payment.id } },
+        { $set: { subscriptionEndsAt, demoSubscription: false }, $addToSet: { subscriptionPaymentIds: payment.id } },
         { new: true },
       )
       if (!updatedUser) {

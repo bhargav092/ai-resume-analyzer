@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { AnalysisService } from './analysis.service'
 import { AuthenticatedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard'
+import { parseAnalysisTitleUpdate } from './analysis.dto'
 
 @Controller('analyses')
 @UseGuards(JwtAuthGuard)
@@ -15,7 +16,13 @@ export class AnalysesController {
     @Body('jobDescription') jobDescription: string,
     @Req() request: AuthenticatedRequest,
   ) {
-    return this.service.analyze(resume, jobDescription, request.user.sub)
+    return this.service.analyze(
+      resume,
+      jobDescription,
+      request.user.sub,
+      request.user.type === 'guest',
+      request.user.expiresAt,
+    )
   }
 
   @Get()
@@ -36,5 +43,11 @@ export class AnalysesController {
   @Delete(':id')
   remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
     return this.service.remove(id, request.user.sub)
+  }
+
+  @Put(':id')
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
+    return this.service.updateTitle(id, request.user.sub, parseAnalysisTitleUpdate(body))
   }
 }

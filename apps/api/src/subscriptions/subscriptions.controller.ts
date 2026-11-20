@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { Types } from 'mongoose'
 import { AuthenticatedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard'
@@ -11,12 +11,14 @@ export class SubscriptionsController {
 
   @Get('status')
   getStatus(@Req() request: AuthenticatedRequest) {
+    this.requirePaidAccount(request)
     return this.subscriptions.getStatus(request.user.sub)
   }
 
   @Post('orders')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   createOrder(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    this.requirePaidAccount(request)
     if (!body || typeof body !== 'object') {
       throw new BadRequestException('A subscription plan is required.')
     }
@@ -31,6 +33,7 @@ export class SubscriptionsController {
   @Post('qr-codes')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   createQrPayment(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    this.requirePaidAccount(request)
     if (!body || typeof body !== 'object' || typeof (body as Record<string, unknown>).planId !== 'string') {
       throw new BadRequestException('A subscription plan is required.')
     }
@@ -39,6 +42,7 @@ export class SubscriptionsController {
 
   @Get('qr-codes/:id/status')
   checkQrPayment(@Req() request: AuthenticatedRequest, @Param('id') paymentId: string) {
+    this.requirePaidAccount(request)
     if (!Types.ObjectId.isValid(paymentId)) throw new BadRequestException('QR payment ID is invalid.')
     return this.subscriptions.checkQrPayment(request.user.sub, paymentId)
   }
@@ -46,6 +50,7 @@ export class SubscriptionsController {
   @Post('verify')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   verifyPayment(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    this.requirePaidAccount(request)
     if (!body || typeof body !== 'object') throw new BadRequestException('Payment details are required.')
     const values = body as Record<string, unknown>
     if (typeof values.razorpay_order_id !== 'string'
@@ -59,5 +64,11 @@ export class SubscriptionsController {
       values.razorpay_payment_id,
       values.razorpay_signature,
     )
+  }
+
+  private requirePaidAccount(request: AuthenticatedRequest) {
+    if (request.user.type === 'guest') {
+      throw new ForbiddenException('Guest sessions cannot access subscription payments.')
+    }
   }
 }

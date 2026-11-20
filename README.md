@@ -58,11 +58,19 @@ when the account first authenticates, and a payment email is sent only after the
 API verifies a captured Razorpay payment. The app does not store card details.
 
 Protected API endpoints use `Authorization: Bearer <accessToken>`. Available routes are
-`POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `GET /auth/me`, `GET /auth/settings`,
+`POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `POST /auth/guest-session`,
+`GET /auth/me`, `PUT/PATCH /auth/me` (display name only), `GET /auth/settings`,
+`PUT/PATCH /auth/settings` (theme preference only),
 `GET /subscriptions/status`, `POST /subscriptions/orders`, `POST /subscriptions/verify`,
 `POST /subscriptions/qr-codes`, and `GET /subscriptions/qr-codes/:id/status`,
 `POST /analyses` (multipart fields `resume` and `jobDescription`), `GET /analyses`,
-`GET /analyses/:id`, `GET /analyses/:id/export`, and `DELETE /analyses/:id`.
+`GET /analyses/:id`, `GET /analyses/:id/export`, `PUT/PATCH /analyses/:id` (title only),
+and `DELETE /analyses/:id`.
+
+Guest sessions are created independently and should be retained by the browser for reloads.
+Their signed tokens and data expire after 30 days. Guest analyses use mock AI, are private
+to that session, and never store source resumes in S3. Guest sessions cannot access
+subscription or payment endpoints.
 
 Resume files are processed in memory and discarded after analysis unless
 `S3_RESUME_BUCKET` is configured. When enabled, objects are stored with server-side

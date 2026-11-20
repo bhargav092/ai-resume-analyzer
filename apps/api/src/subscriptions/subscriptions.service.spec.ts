@@ -52,6 +52,23 @@ describe('SubscriptionsService', () => {
     expect(new Date(status.trialEndsAt).getTime() - new Date(status.trialStartedAt).getTime()).toBe(24 * 60 * 60 * 1000)
   })
 
+  it('identifies active demo access without representing it as a payment', async () => {
+    const now = Date.now()
+    const service = serviceWithUser({
+      trialStartedAt: new Date(now - 25 * 60 * 60 * 1000),
+      subscriptionEndsAt: new Date(now + 180 * 24 * 60 * 60 * 1000),
+      demoSubscription: true,
+    })
+
+    const status = await service.getStatus('user-id')
+
+    expect(status).toMatchObject({
+      subscriptionActive: true,
+      demoSubscription: true,
+      accessActive: true,
+    })
+  })
+
   it.each([
     ['week', 9900],
     ['month', 19900],
@@ -227,6 +244,7 @@ describe('SubscriptionsService', () => {
       displayName: 'Candidate',
       subscriptionEndsAt: null,
       subscriptionPaymentIds: [],
+      demoSubscription: true,
     }
     const statusUser = {
       trialStartedAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
@@ -253,6 +271,11 @@ describe('SubscriptionsService', () => {
 
     expect(status.subscriptionActive).toBe(true)
     expect(status.notificationWarning).toBeNull()
+    expect(users.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: userId, subscriptionPaymentIds: { $ne: paymentId } },
+      { $set: { subscriptionEndsAt: expect.any(Date), demoSubscription: false }, $addToSet: { subscriptionPaymentIds: paymentId } },
+      { new: true },
+    )
     expect(email.sendPaymentConfirmation).toHaveBeenCalledWith('person@example.com', 'Candidate', '7 days', 99)
   })
 

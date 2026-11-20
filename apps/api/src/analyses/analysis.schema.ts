@@ -24,9 +24,16 @@ export class Analysis {
   @Prop({ trim: true })
   resumeObjectKey?: string
 
+  @Prop()
+  guestExpiresAt?: Date
+
   createdAt!: Date
   updatedAt!: Date
 }
 
 export const AnalysisSchema = SchemaFactory.createForClass(Analysis)
 AnalysisSchema.index({ userId: 1, createdAt: -1 })
+AnalysisSchema.index(
+  { guestExpiresAt: 1 },
+  { expireAfterSeconds: 0, partialFilterExpression: { guestExpiresAt: { $exists: true } } },
+)

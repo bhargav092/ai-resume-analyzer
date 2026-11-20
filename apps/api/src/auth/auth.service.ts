@@ -120,9 +120,44 @@ export class AuthService {
     return { id: user._id.toString(), email: user.email, displayName: user.displayName }
   }
 
+  async updateCurrentUser(id: string, displayName: string) {
+    const normalized = displayName.trim()
+    if (!normalized || normalized.length > 100) {
+      throw new BadRequestException('Display name must be between 1 and 100 characters.')
+    }
+    const user = await this.users.findByIdAndUpdate(
+      id,
+      { $set: { displayName: normalized } },
+      { new: true, runValidators: true, projection: 'email displayName' },
+    ).lean()
+    if (!user) throw new UnauthorizedException('User account no longer exists.')
+    return { id: user._id.toString(), email: user.email, displayName: user.displayName }
+  }
+
+  async getSettings(id: string) {
+    const user = await this.users.findById(id).select('preferences').lean()
+    if (!user) throw new UnauthorizedException('User account no longer exists.')
+    return {
+      analysisRetentionDays: Number(process.env.ANALYSIS_RETENTION_DAYS || 90),
+      resumeStorageEnabled: Boolean(process.env.S3_RESUME_BUCKET),
+      aiProvider: (process.env.AI_PROVIDER || 'mock').toLowerCase(),
+      preferences: user.preferences || { theme: 'system' },
+    }
+  }
+
+  async updateSettings(id: string, preferences: { theme: 'light' | 'dark' | 'system' }) {
+    const user = await this.users.findByIdAndUpdate(
+      id,
+      { $set: { 'preferences.theme': preferences.theme } },
+      { new: true, runValidators: true, projection: 'preferences' },
+    ).lean()
+    if (!user) throw new UnauthorizedException('User account no longer exists.')
+    return { preferences: user.preferences || preferences }
+  }
+
   private issue(user: UserDocument) {
     const id = user._id.toString()
-    const accessToken = jwt.sign({ sub: id, email: user.email }, jwtSecret, { expiresIn: '1h' })
+    const accessToken = jwt.sign({ sub: id, email: user.email, type: 'user' }, jwtSecret, { expiresIn: '1h' })
     return { accessToken, user: { id, email: user.email, displayName: user.displayName } }
   }
 

@@ -23,6 +23,12 @@ export class User {
   @Prop()
   subscriptionEndsAt?: Date
 
+  @Prop({ default: false })
+  demoSubscription!: boolean
+
+  @Prop({ type: Object, default: { theme: 'system' } })
+  preferences!: { theme: 'light' | 'dark' | 'system' }
+
   @Prop({ type: [String], default: [] })
   subscriptionPaymentIds!: string[]
 

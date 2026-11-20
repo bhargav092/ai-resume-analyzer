@@ -1,11 +1,22 @@
-import { BadRequestException, Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Patch, Post, Put, Req, UseGuards } from '@nestjs/common'
 import { AuthService } from './auth.service'
 import { AuthenticatedRequest, JwtAuthGuard } from './jwt-auth.guard'
 import { Throttle } from '@nestjs/throttler'
+import { GuestSessionService } from './guest-session.service'
+import { parseDisplayNameUpdate, parsePreferencesUpdate } from './auth.dto'
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly guestSessions: GuestSessionService,
+  ) {}
+
+  @Post('guest-session')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  createGuestSession() {
+    return this.guestSessions.create()
+  }
 
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -42,16 +53,39 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   me(@Req() request: AuthenticatedRequest) {
+    if (request.user.type === 'guest') return this.guestSessions.getIdentity(request.user.sub)
     return this.auth.getCurrentUser(request.user.sub)
+  }
+
+  @Put('me')
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  updateMe(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    const displayName = parseDisplayNameUpdate(body)
+    return request.user.type === 'guest'
+      ? this.guestSessions.updateDisplayName(request.user.sub, displayName)
+      : this.auth.updateCurrentUser(request.user.sub, displayName)
   }
 
   @Get('settings')
   @UseGuards(JwtAuthGuard)
-  settings() {
-    return {
+  settings(@Req() request: AuthenticatedRequest) {
+    if (request.user.type !== 'guest') return this.auth.getSettings(request.user.sub)
+    return this.guestSessions.getPreferences(request.user.sub).then((preferences) => ({
       analysisRetentionDays: Number(process.env.ANALYSIS_RETENTION_DAYS || 90),
       resumeStorageEnabled: Boolean(process.env.S3_RESUME_BUCKET),
       aiProvider: (process.env.AI_PROVIDER || 'mock').toLowerCase(),
-    }
+      preferences,
+    }))
+  }
+
+  @Put('settings')
+  @Patch('settings')
+  @UseGuards(JwtAuthGuard)
+  updateSettings(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    const preferences = parsePreferencesUpdate(body)
+    return request.user.type === 'guest'
+      ? this.guestSessions.updatePreferences(request.user.sub, preferences)
+      : this.auth.updateSettings(request.user.sub, preferences)
   }
 }

@@ -13,6 +13,28 @@ describe('AuthService Google sign-in', () => {
     jest.restoreAllMocks()
   })
 
+  describe('AuthService account updates', () => {
+    it('updates only the authenticated account display name', async () => {
+      const account = { _id: { toString: () => 'account-id' }, email: 'person@example.com', displayName: 'New Name' }
+      const query = { lean: jest.fn().mockResolvedValue(account) }
+      const users = {
+        findByIdAndUpdate: jest.fn().mockReturnValue(query),
+      } as unknown as Model<UserDocument>
+      const service = new AuthService(users, {} as EmailService)
+
+      await expect(service.updateCurrentUser('account-id', '  New Name  ')).resolves.toEqual({
+        id: 'account-id',
+        email: 'person@example.com',
+        displayName: 'New Name',
+      })
+      expect(users.findByIdAndUpdate).toHaveBeenCalledWith(
+        'account-id',
+        { $set: { displayName: 'New Name' } },
+        { new: true, runValidators: true, projection: 'email displayName' },
+      )
+    })
+  })
+
   it('creates a verified Google account and sends its first-login email once', async () => {
     process.env.GOOGLE_CLIENT_ID = 'google-client-id'
     const savedUser = { _id: { toString: () => 'user-id' }, email: 'person@example.com', displayName: 'Candidate' }
