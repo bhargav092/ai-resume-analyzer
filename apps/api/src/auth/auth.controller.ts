@@ -1,17 +1,48 @@
-import { Body, Controller, Post } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
 import { AuthService } from './auth.service'
+import { AuthenticatedRequest, JwtAuthGuard } from './jwt-auth.guard'
+import { Throttle } from '@nestjs/throttler'
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('register')
-  register(@Body() body: { email: string; password: string; displayName?: string }) {
-    return this.auth.register(body.email, body.password, body.displayName)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  register(@Body() body: unknown) {
+    if (!body || typeof body !== 'object') throw new BadRequestException('Request body must be an object.')
+    const { email, password, displayName } = body as Record<string, unknown>
+    if (typeof email !== 'string' || typeof password !== 'string'
+      || (displayName !== undefined && typeof displayName !== 'string')) {
+      throw new BadRequestException('Email, password, and display name must be strings.')
+    }
+    return this.auth.register(email, password, displayName)
   }
 
   @Post('login')
-  login(@Body() body: { email: string; password: string }) {
-    return this.auth.login(body.email, body.password)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  login(@Body() body: unknown) {
+    if (!body || typeof body !== 'object') throw new BadRequestException('Request body must be an object.')
+    const { email, password } = body as Record<string, unknown>
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      throw new BadRequestException('Email and password must be strings.')
+    }
+    return this.auth.login(email, password)
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  me(@Req() request: AuthenticatedRequest) {
+    return this.auth.getCurrentUser(request.user.sub)
+  }
+
+  @Get('settings')
+  @UseGuards(JwtAuthGuard)
+  settings() {
+    return {
+      analysisRetentionDays: Number(process.env.ANALYSIS_RETENTION_DAYS || 90),
+      resumeStorageEnabled: Boolean(process.env.S3_RESUME_BUCKET),
+      aiProvider: (process.env.AI_PROVIDER || 'mock').toLowerCase(),
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common'
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common'
 import { InjectConnection } from '@nestjs/mongoose'
 import { Connection } from 'mongoose'
 
@@ -8,10 +8,12 @@ export class HealthController {
 
   @Get('health')
   health() {
+    const connected = this.connection.readyState === 1
+    if (!connected) throw new ServiceUnavailableException('MongoDB is disconnected.')
     return {
-      status: this.connection.readyState === 1 ? 'ok' : 'degraded',
+      status: 'ok',
       service: 'ai-resume-analyzer-api',
-      database: this.connection.readyState === 1 ? 'connected' : 'disconnected',
+      database: 'connected',
     }
   }
 }

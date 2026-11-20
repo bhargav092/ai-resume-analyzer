@@ -1,12 +1,15 @@
 # Architecture
 
-The MVP uses a modular monolith:
+The app uses a modular monolith:
 
 - React client for uploads, job descriptions, statuses and results
-- NestJS API for authentication, validation, parsing and orchestration
-- A provider interface behind the mock or configured LLM provider
-- MongoDB for application metadata (production integration)
-- S3 for original private resume documents (production integration)
-- Docker for local and deployment packaging
+- NestJS API for authentication, validation, parsing, authorization and orchestration
+- MongoDB for users and owner-scoped analysis records
+- Optional private S3 storage for uploaded resumes
+- A provider interface for local keyword matching or configured Claude/OpenAI analysis
+- Docker Compose for local MongoDB/API/web development
 
-The LLM is never the source of truth for file safety, arithmetic or exact skill appearance.
+Resume text and job descriptions are treated as untrusted input. AI response structure
+is validated, quoted resume evidence is checked against extracted text, and coverage is
+computed by the server rather than trusted from the model. The score is a coverage
+indicator, not a hiring prediction.

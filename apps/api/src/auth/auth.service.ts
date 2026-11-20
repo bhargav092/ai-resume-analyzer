@@ -4,18 +4,22 @@ import * as bcrypt from 'bcryptjs'
 import * as jwt from 'jsonwebtoken'
 import { Model } from 'mongoose'
 import { User, UserDocument } from './user.schema'
+import { jwtSecret } from './jwt-secret'
 
 @Injectable()
 export class AuthService {
-  private readonly secret = process.env.JWT_SECRET || 'local-development-secret-change-me'
-
   constructor(@InjectModel(User.name) private readonly users: Model<UserDocument>) {}
 
   async register(email: string, password: string, displayName = 'Candidate') {
-    const normalized = email?.trim().toLowerCase()
-    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || !password || password.length < 8) {
-      throw new BadRequestException('A valid email and an 8-character password are required.')
+    if (typeof email !== 'string' || typeof password !== 'string'
+      || (displayName !== undefined && typeof displayName !== 'string')) {
+      throw new BadRequestException('Email, password, and display name must be strings.')
     }
+    const normalized = email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || password.length < 8 || password.length > 128) {
+      throw new BadRequestException('A valid email and a password of 8 to 128 characters are required.')
+    }
+    if (displayName.trim().length > 100) throw new BadRequestException('Display name must be 100 characters or fewer.')
     const user = new this.users({
       email: normalized,
       displayName: displayName?.trim() || 'Candidate',
@@ -33,7 +37,10 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const normalized = email?.trim().toLowerCase()
+    if (typeof email !== 'string' || typeof password !== 'string' || password.length > 128) {
+      throw new UnauthorizedException('Invalid email or password.')
+    }
+    const normalized = email.trim().toLowerCase()
     const user = normalized
       ? await this.users.findOne({ email: normalized }).select('+passwordHash')
       : null
@@ -43,9 +50,15 @@ export class AuthService {
     return this.issue(user)
   }
 
+  async getCurrentUser(id: string) {
+    const user = await this.users.findById(id).select('email displayName').lean()
+    if (!user) throw new UnauthorizedException('User account no longer exists.')
+    return { id: user._id.toString(), email: user.email, displayName: user.displayName }
+  }
+
   private issue(user: UserDocument) {
     const id = user._id.toString()
-    const accessToken = jwt.sign({ sub: id, email: user.email }, this.secret, { expiresIn: '1h' })
+    const accessToken = jwt.sign({ sub: id, email: user.email }, jwtSecret, { expiresIn: '1h' })
     return { accessToken, user: { id, email: user.email, displayName: user.displayName } }
   }
 }
